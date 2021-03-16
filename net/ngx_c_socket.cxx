@@ -23,6 +23,7 @@
 #include "ngx_global.h"
 #include "ngx_func.h"
 #include "ngx_c_socket.h"
+#include "ngx_c_memory.h"
 
 //构造函数
 CSocekt::CSocekt()
@@ -37,6 +38,10 @@ CSocekt::CSocekt()
     m_pfree_connections = NULL;  //连接池中空闲的连接链
     //m_pread_events = NULL;       //读事件数组给空
     //m_pwrite_events = NULL;      //写事件数组给空
+
+    //一些和网络通讯有关的常用变量值，供后续频繁使用时提高效率
+    m_iLenPkgHeader = sizeof(COMM_PKG_HEADER);    //包头的sizeof值【占用的字节数】
+    m_iLenMsgHeader =  sizeof(STRUC_MSG_HEADER);  //消息头的sizeof值【占用的字节数】
 
     return;
 }
@@ -63,7 +68,25 @@ CSocekt::~CSocekt()
     if(m_pconnections != NULL)//释放连接池
         delete [] m_pconnections;
 
+    //(3)接收消息队列中内容释放
+    clearMsgRecvQueue();
+
     return;
+}
+//各种清理函数-------------------------
+//清理接收消息队列，注意这个函数的写法。
+void CSocekt::clearMsgRecvQueue()
+{
+	char * sTmpMempoint;
+	CMemory *p_memory = CMemory::GetInstance();
+
+	//临界与否，日后再考虑，当前先不考虑。。。。。。如果将来有线程池再考虑临界问题
+	while(!m_MsgRecvQueue.empty())
+	{
+		sTmpMempoint = m_MsgRecvQueue.front();
+		m_MsgRecvQueue.pop_front();
+		p_memory->FreeMemory(sTmpMempoint);
+	}
 }
 
 //初始化函数【fork()子进程之前干这个事】
@@ -466,9 +489,12 @@ int CSocekt::ngx_epoll_process_events(int timer)
 
         //能走到这里，我们认为这些事件都没过期，就正常开始处理
         revents = m_events[i].events;//取出事件类型
+
         if(revents & (EPOLLERR|EPOLLHUP)) //例如对方close掉套接字，这里会感应到【换句话说：如果发生了错误或者客户端断连】
         {
             //这加上读写标记，方便后续代码处理，至于怎么处理，后续再说，这里也是参照nginx官方代码引入的这段代码；
+            //官方说法：if the error events were returned, add EPOLLIN and EPOLLOUT，to handle the events at least in one active handler
+            //我认为官方也是经过反复思考才加上着东西的，先放这里放着吧；
             revents |= EPOLLIN|EPOLLOUT;   //EPOLLIN：表示对应的链接上有数据可以读出（TCP链接的远端主动关闭连接，也相当于可读事件，因为本服务器小处理发送来的FIN包）
                                            //EPOLLOUT：表示对应的连接上可以写入数据发送【写准备好】
         }
@@ -484,9 +510,9 @@ int CSocekt::ngx_epoll_process_events(int timer)
                                               //如果是已经连入，发送数据到这里，则这里执行的应该是 CSocekt::ngx_wait_request_handler
         }
 
-        if(revents & EPOLLOUT) //如果是写事件
+        if(revents & EPOLLOUT) //如果是写事件【对方关闭连接也触发这个，再研究。。。。。。】，注意上边的 if(revents & (EPOLLERR|EPOLLHUP))  revents |= EPOLLIN|EPOLLOUT; 读写标记都给加上了
         {
-            //....待扩展
+            //....待扩展， 客户端关闭时，关闭的时候能够执行到这里，因为上边有if(revents & (EPOLLERR|EPOLLHUP))  revents |= EPOLLIN|EPOLLOUT; 代码
 
             ngx_log_stderr(errno,"111111111111111111111111111111.");
 

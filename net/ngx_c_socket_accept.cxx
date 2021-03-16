@@ -135,7 +135,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
             if(setnonblocking(s) == false)
             {
                 //设置非阻塞居然失败
-                ngx_close_accepted_connection(newc); //回收连接池中的连接（千万不能忘记），并关闭socket
+                ngx_close_connection(newc); //回收连接池中的连接（千万不能忘记），并关闭socket
                 return; //直接返回
             }
         }
@@ -154,7 +154,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
                                 ) == -1)
         {
             //增加事件失败，失败日志在ngx_epoll_add_event中写过了，因此这里不多写啥；
-            ngx_close_accepted_connection(newc);//回收连接池中的连接（千万不能忘记），并关闭socket
+            ngx_close_connection(newc);//回收连接池中的连接（千万不能忘记），并关闭socket
             return; //直接返回
         }
 
@@ -164,15 +164,3 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
     return;
 }
 
-//用户连入，我们accept4()时，得到的socket在处理中产生失败，则资源用这个函数释放【因为这里涉及到好几个要释放的资源，所以写成函数】
-void CSocekt::ngx_close_accepted_connection(lpngx_connection_t c)
-{
-    int fd = c->fd;
-    ngx_free_connection(c);
-    c->fd = -1; //官方nginx这么写，这么写有意义；
-    if(close(fd) == -1)
-    {
-        ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocekt::ngx_close_accepted_connection()中close(%d)失败!",fd);
-    }
-    return;
-}

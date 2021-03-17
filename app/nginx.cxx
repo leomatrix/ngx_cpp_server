@@ -10,13 +10,14 @@
 #include <string.h>
 #include <signal.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
-#include "ngx_macro.h"     //各种宏定义
-#include "ngx_func.h"      //各种函数声明
-#include "ngx_c_conf.h"    //和配置文件处理相关的类,名字带c_表示和类有关
-#include "ngx_c_socket.h"  //和socket通讯相关
-#include "ngx_c_memory.h"  //和内存分配释放等相关
-
+#include "ngx_macro.h"         //各种宏定义
+#include "ngx_func.h"          //各种函数声明
+#include "ngx_c_conf.h"        //和配置文件处理相关的类,名字带c_表示和类有关
+#include "ngx_c_socket.h"      //和socket通讯相关
+#include "ngx_c_memory.h"      //和内存分配释放等相关
+#include "ngx_c_threadpool.h"  //和多线程有关
 
 //本文件用的函数声明
 static void freeresource();
@@ -29,8 +30,9 @@ char    **g_os_argv;            //原始命令行参数数组,在main中会被�
 char    *gp_envmem=NULL;        //指向自己分配的env环境变量的内存，在ngx_init_setproctitle()函数中会被分配内存
 int     g_daemonized=0;         //守护进程标记，标记是否启用了守护进程模式，0：未启用，1：启用了
 
-//socket相关
-CSocekt g_socket;               //socket全局对象
+//socket/线程池相关
+CSocekt      g_socket;          //socket全局对象
+CThreadPool  g_threadpool;      //线程池全局对象
 
 //和进程本身有关的全局量
 pid_t   ngx_pid;                //当前进程的pid
@@ -43,13 +45,24 @@ sig_atomic_t  ngx_reap;         //标记子进程状态变化[一般是子进程
 //程序主入口函数----------------------------------
 int main(int argc, char *const *argv)
 {
+    //time_t mytime = time(NULL);
+    //printf("time = %u",mytime);
+    //exit(0);
+    //#ifdef _POSIX_THREADS
+    //    printf("henhao");
+    //#endif
+    //exit(0);
+    //printf("unsigned long sizeof=%d",sizeof(unsigned long));
+    //printf("htonl(100)=%d",htonl(100));
+    //printf("ntohl(htonl(100)=%d",ntohl(htonl(100)));
+    //exit(0);
     //printf("EAGAIN=%d,EWOULDBLOCK=%d,EINTR=%d",EAGAIN,EWOULDBLOCK,EINTR);
     //ssize_t n = -1;
     //printf("ssize_t n = %d\n",n);
     //exit(0);
     int exitcode = 0;           //退出代码，先给0表示正常退出
     int i;                      //临时用
-    CMemory *p_memory;
+    //CMemory *p_memory;
 
     //(1)无伤大雅也不需要释放的放最上边
     ngx_pid    = getpid();      //取得进程pid

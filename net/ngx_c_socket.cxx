@@ -17,6 +17,7 @@
 //#include <sys/socket.h>
 #include <sys/ioctl.h> //ioctl
 #include <arpa/inet.h>
+#include <pthread.h>   //多线程
 
 #include "ngx_c_conf.h"
 #include "ngx_macro.h"
@@ -42,6 +43,12 @@ CSocekt::CSocekt()
     //一些和网络通讯有关的常用变量值，供后续频繁使用时提高效率
     m_iLenPkgHeader = sizeof(COMM_PKG_HEADER);    //包头的sizeof值【占用的字节数】
     m_iLenMsgHeader =  sizeof(STRUC_MSG_HEADER);  //消息头的sizeof值【占用的字节数】
+
+
+    m_iRecvMsgQueueCount = 0;    //收消息队列
+
+    //多线程相关
+    pthread_mutex_init(&m_recvMessageQueueMutex, NULL); //互斥量初始化
 
     return;
 }
@@ -70,6 +77,9 @@ CSocekt::~CSocekt()
 
     //(3)接收消息队列中内容释放
     clearMsgRecvQueue();
+
+    //(4)多线程相关
+    pthread_mutex_destroy(&m_recvMessageQueueMutex);    //互斥量释放
 
     return;
 }
@@ -381,7 +391,7 @@ int CSocekt::ngx_epoll_add_event(int fd,
 
     if(epoll_ctl(m_epollhandle,eventtype,fd,&ev) == -1)
     {
-        ngx_log_stderr(errno,"CSocekt::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%u,%u)失败.",fd,readevent,writeevent,otherflag,eventtype);
+        ngx_log_stderr(errno,"CSocekt::ngx_epoll_add_event()中epoll_ctl(%d,%d,%d,%ud,%ud)失败.",fd,readevent,writeevent,otherflag,eventtype);
         //exit(2); //这是致命问题了，直接退，资源由系统释放吧，这里不刻意释放了，比较麻烦，后来发现不能直接退；
         return -1;
     }

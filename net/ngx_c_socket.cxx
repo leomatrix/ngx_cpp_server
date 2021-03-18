@@ -44,11 +44,8 @@ CSocekt::CSocekt()
     m_iLenPkgHeader = sizeof(COMM_PKG_HEADER);    //包头的sizeof值【占用的字节数】
     m_iLenMsgHeader =  sizeof(STRUC_MSG_HEADER);  //消息头的sizeof值【占用的字节数】
 
-
-    m_iRecvMsgQueueCount = 0;    //收消息队列
-
     //多线程相关
-    pthread_mutex_init(&m_recvMessageQueueMutex, NULL); //互斥量初始化
+    //pthread_mutex_init(&m_recvMessageQueueMutex, NULL); //互斥量初始化
 
     return;
 }
@@ -75,28 +72,10 @@ CSocekt::~CSocekt()
     if(m_pconnections != NULL)//释放连接池
         delete [] m_pconnections;
 
-    //(3)接收消息队列中内容释放
-    clearMsgRecvQueue();
-
-    //(4)多线程相关
-    pthread_mutex_destroy(&m_recvMessageQueueMutex);    //互斥量释放
+    //(3)多线程相关
+    //pthread_mutex_destroy(&m_recvMessageQueueMutex);    //互斥量释放
 
     return;
-}
-//各种清理函数-------------------------
-//清理接收消息队列，注意这个函数的写法。
-void CSocekt::clearMsgRecvQueue()
-{
-	char * sTmpMempoint;
-	CMemory *p_memory = CMemory::GetInstance();
-
-	//临界与否，日后再考虑，当前先不考虑。。。。。。如果将来有线程池再考虑临界问题
-	while(!m_MsgRecvQueue.empty())
-	{
-		sTmpMempoint = m_MsgRecvQueue.front();
-		m_MsgRecvQueue.pop_front();
-		p_memory->FreeMemory(sTmpMempoint);
-	}
 }
 
 //初始化函数【fork()子进程之前干这个事】

@@ -235,11 +235,12 @@ void CSocekt::ngx_wait_request_handler_proc_p1(lpngx_connection_t c)
 void CSocekt::ngx_wait_request_handler_proc_plast(lpngx_connection_t c)
 {
     //把这段内存放到消息队列中来；
-    int irmqc = 0;  //消息队列当前信息数量
-    inMsgRecvQueue(c->pnewMemPointer,irmqc); //返回消息队列当前信息数量irmqc，是调用本函数后的消息队列中消息数量
-
+    //int irmqc = 0;  //消息队列当前信息数量
+    //inMsgRecvQueue(c->pnewMemPointer,irmqc); //返回消息队列当前信息数量irmqc，是调用本函数后的消息队列中消息数量
     //激发线程池中的某个线程来处理业务逻辑
-    g_threadpool.Call(irmqc);
+    //g_threadpool.Call(irmqc);
+
+    g_threadpool.inMsgRecvQueueAndSignal(c->pnewMemPointer); //入消息队列并触发线程处理消息
 
     c->ifnewrecvMem    = false;            //内存不再需要释放，因为你收完整了包，这个包被上边调用inMsgRecvQueue()移入消息队列，那么释放内存就属于业务逻辑去干，不需要回收连接到连接池中干了
     c->pnewMemPointer  = NULL;
@@ -250,6 +251,7 @@ void CSocekt::ngx_wait_request_handler_proc_plast(lpngx_connection_t c)
 }
 
 //---------------------------------------------------------------
+/*
 //当收到一个完整包之后，将完整包入消息队列，这个包在服务器端应该是 消息头+包头+包体 格式
 //参数：返回 接收消息队列当前信息数量irmqc，因为临界着，所以这个值也是OK的；
 void CSocekt::inMsgRecvQueue(char *buf,int &irmqc) //buf这段内存 ： 消息头 + 包头 + 包体
@@ -284,6 +286,7 @@ char *CSocekt::outMsgRecvQueue()
     --m_iRecvMsgQueueCount;                    //收消息队列数字-1
     return sTmpMsgBuf;
 }
+*/
 
 //临时函数，用于将Msg中消息干掉
 /*void CSocekt::tmpoutMsgRecvQueue()
@@ -317,6 +320,5 @@ char *CSocekt::outMsgRecvQueue()
 //         消息本身格式【消息头+包头+包体】
 void CSocekt::threadRecvProcFunc(char *pMsgBuf)
 {
-
     return;
 }

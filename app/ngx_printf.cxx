@@ -154,7 +154,7 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last,const char *fmt,va_list args)
                 }
                 break;  //这break掉，直接跳道switch后边的代码去执行,这种凡是break的，都不做fmt++;  *********************【switch后仍旧需要进一步处理】
 
-             case 'i':
+             case 'i': //转换ngx_int_t型数据，如果用%ui，则转换的数据类型是ngx_uint_t
                 if (sign)
                 {
                     i64 = (int64_t) va_arg(args, intptr_t);
@@ -169,6 +169,17 @@ u_char *ngx_vslprintf(u_char *buf, u_char *last,const char *fmt,va_list args)
                 //    width = NGX_INT_T_LEN;
                 //}
 
+                break;
+
+            case 'L':  //转换int64j型数据，如果用%uL，则转换的数据类型是uint64 t
+                if (sign)
+                {
+                    i64 = va_arg(args, int64_t);
+                }
+                else
+                {
+                    ui64 = va_arg(args, uint64_t);
+                }
                 break;
 
             case 'p':

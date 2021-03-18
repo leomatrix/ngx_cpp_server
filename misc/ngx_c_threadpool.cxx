@@ -109,7 +109,7 @@ void* CThreadPool::ThreadFunc(void* threadData)
     {
         //线程用pthread_mutex_lock()函数去锁定指定的mutex变量，若该mutex已经被另外一个线程锁定了，该调用将会阻塞线程直到mutex被解锁。
         err = pthread_mutex_lock(&m_pthreadMutex);
-        if(err != 0) ngx_log_stderr(err,"CThreadPool::ThreadFunc()pthread_mutex_lock()失败，返回的错误码为%d!",err);//有问题，要及时报告
+        if(err != 0) ngx_log_stderr(err,"CThreadPool::ThreadFunc()中pthread_mutex_lock()失败，返回的错误码为%d!",err);//有问题，要及时报告
 
 
         //以下这行程序写法技巧十分重要，必须要用while这种写法，
@@ -175,7 +175,7 @@ void* CThreadPool::ThreadFunc(void* threadData)
 
         //可以解锁互斥量了
         err = pthread_mutex_unlock(&m_pthreadMutex);
-        if(err != 0)  ngx_log_stderr(err,"CThreadPool::ThreadFunc()pthread_cond_wait()失败，返回的错误码为%d!",err);//有问题，要及时报告
+        if(err != 0)  ngx_log_stderr(err,"CThreadPool::ThreadFunc()中pthread_mutex_unlock()失败，返回的错误码为%d!",err);//有问题，要及时报告
 
         //能走到这里的，就是有消息可以处理，开始处理
         ++pThreadPoolObj->m_iRunningThreadNum;    //原子+1【记录正在干活的线程数量增加1】，这比互斥量要快很多

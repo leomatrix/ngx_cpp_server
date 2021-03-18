@@ -35,12 +35,13 @@ int     g_daemonized=0;         //守护进程标记，标记是否启用了守�
 //socket/线程池相关
 //CSocekt      g_socket;          //socket全局对象
 CLogicSocket   g_socket;        //socket全局对象
-CThreadPool  g_threadpool;      //线程池全局对象
+CThreadPool    g_threadpool;    //线程池全局对象
 
 //和进程本身有关的全局量
 pid_t   ngx_pid;                //当前进程的pid
 pid_t   ngx_parent;             //父进程的pid
 int     ngx_process;            //进程类型，比如master,worker进程等
+int     g_stopEvent;            //标志程序退出,0不退出1，退出
 
 sig_atomic_t  ngx_reap;         //标记子进程状态变化[一般是子进程发来SIGCHLD信号表示退出],sig_atomic_t:系统定义的类型：访问或改变这些变量需要在计算机的一条指令内完成
                                    //一般等价于int【通常情况下，int类型的变量通常是原子访问的，也可以认为 sig_atomic_t就是int类型的数据】
@@ -48,24 +49,14 @@ sig_atomic_t  ngx_reap;         //标记子进程状态变化[一般是子进程
 //程序主入口函数----------------------------------
 int main(int argc, char *const *argv)
 {
-    //time_t mytime = time(NULL);
-    //printf("time = %u",mytime);
+    //printf("%u,%u,%u,%u",EPOLLIN,EPOLLOUT,EPOLLRDHUP,EPOLLET);  1,4,8192,2147483648
     //exit(0);
-    //#ifdef _POSIX_THREADS
-    //    printf("henhao");
-    //#endif
-    //exit(0);
-    //printf("unsigned long sizeof=%d",sizeof(unsigned long));
-    //printf("htonl(100)=%d",htonl(100));
-    //printf("ntohl(htonl(100)=%d",ntohl(htonl(100)));
-    //exit(0);
-    //printf("EAGAIN=%d,EWOULDBLOCK=%d,EINTR=%d",EAGAIN,EWOULDBLOCK,EINTR);
-    //ssize_t n = -1;
-    //printf("ssize_t n = %d\n",n);
-    //exit(0);
+
     int exitcode = 0;           //退出代码，先给0表示正常退出
     int i;                      //临时用
-    //CMemory *p_memory;
+
+    //(0)先初始化的变量
+    g_stopEvent = 0;            //标记程序是否退出，0不退出
 
     //(1)无伤大雅也不需要释放的放最上边
     ngx_pid    = getpid();      //取得进程pid

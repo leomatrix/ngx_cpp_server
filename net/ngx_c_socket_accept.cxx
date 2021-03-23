@@ -156,7 +156,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
          if(ngx_epoll_oper_event(
                                 s,                  //socekt句柄
                                 EPOLL_CTL_ADD,      //事件类型，这里是增加
-                                EPOLLIN|EPOLLRDHUP, //标志，这里代表要增加的标志,EPOLLIN：可读，EPOLLRDHUP：TCP连接的远端关闭或者半关闭
+                                EPOLLIN|EPOLLRDHUP, //标志，这里代表要增加的标志,EPOLLIN：可读，EPOLLRDHUP：TCP连接的远端关闭或者半关闭 ，如果边缘触发模式可以增加 EPOLLET
                                 0,                  //对于事件类型为增加的，不需要这个参数
                                 newc                //连接池中的连接
                                 ) == -1)

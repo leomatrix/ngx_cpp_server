@@ -487,7 +487,7 @@ int CSocekt::ngx_epoll_oper_event(
                         int                fd,               //句柄，一个socket
                         uint32_t           eventtype,        //事件类型，一般是EPOLL_CTL_ADD，EPOLL_CTL_MOD，EPOLL_CTL_DEL ，说白了就是操作epoll红黑树的节点(增加，修改，删除)
                         uint32_t           flag,             //标志，具体含义取决于eventtype
-                        int                bcaction,         //补充动作，用于补充flag标记的不足  :  0：增加   1：去掉
+                        int                bcaction,         //补充动作，用于补充flag标记的不足  :  0：增加   1：去掉 2：完全覆盖 ,eventtype是EPOLL_CTL_MOD时这个参数就有用
                         lpngx_connection_t pConn             //pConn：一个指针【其实是一个连接】，EPOLL_CTL_ADD时增加到红黑树中去，将来epoll_wait时能取出来用
                         )
 {
@@ -497,19 +497,41 @@ int CSocekt::ngx_epoll_oper_event(
     if(eventtype == EPOLL_CTL_ADD) //往红黑树中增加节点；
     {
         //红黑树从无到有增加节点
-        ev.data.ptr = (void *)pConn;
+        //ev.data.ptr = (void *)pConn;
         ev.events = flag;      //既然是增加节点，则不管原来是啥标记
         pConn->events = flag;  //这个连接本身也记录这个标记
     }
     else if(eventtype == EPOLL_CTL_MOD)
     {
         //节点已经在红黑树中，修改节点的事件信息
+        ev.events = pConn->events;  //先把标记恢复回来
+        if(bcaction == 0)
+        {
+            //增加某个标记
+            ev.events |= flag;
+        }
+        else if(bcaction == 1)
+        {
+            //去掉某个标记
+            ev.events &= ~flag;
+        }
+        else
+        {
+            //完全覆盖某个标记
+            ev.events = flag;      //完全覆盖
+        }
+        pConn->events = ev.events; //记录该标记
     }
     else
     {
-        //删除红黑树中节点，目前没这个需求，所以将来再扩展
+        //删除红黑树中节点，目前没这个需求【socket关闭这项会自动从红黑树移除】，所以将来再扩展
         return  1;  //先直接返回1表示成功
     }
+
+    //原来的理解中，绑定ptr这个事，只在EPOLL_CTL_ADD的时候做一次即可，但是发现EPOLL_CTL_MOD似乎会破坏掉.data.ptr，因此不管是EPOLL_CTL_ADD，还是EPOLL_CTL_MOD，都给进去
+    //找了下内核源码SYSCALL_DEFINE4(epoll_ctl, int, epfd, int, op, int, fd,		struct epoll_event __user *, event)，感觉真的会覆盖掉：
+       //copy_from_user(&epds, event, sizeof(struct epoll_event)))，感觉这个内核处理这个事情太粗暴了
+    ev.data.ptr = (void *)pConn;
 
     if(epoll_ctl(m_epollhandle,eventtype,fd,&ev) == -1)
     {
@@ -648,7 +670,7 @@ int CSocekt::ngx_epoll_process_events(int timer)
         {
             //....待扩展， 客户端关闭时，关闭的时候能够执行到这里，因为上边有if(revents & (EPOLLERR|EPOLLHUP))  revents |= EPOLLIN|EPOLLOUT; 代码
 
-            ngx_log_stderr(errno,"111111111111111111111111111111.");
+            ngx_log_stderr(errno,"22222222222222222222.");
 
         }
     } //end for(int i = 0; i < events; ++i)

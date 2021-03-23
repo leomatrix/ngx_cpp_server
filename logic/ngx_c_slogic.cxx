@@ -194,19 +194,17 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER p
     pPkgHeader->crc32   = htonl(pPkgHeader->crc32);
 
     //f)发送数据包
-    /*msgSend(p_sendbuf);
-    //如果时机OK才add_event
-    if(ngx_epoll_add_event(pConn->fd,                 //socket句柄
-                                0,1,              //读，写 ,这里读为1，表示客户端应该主动给我服务器发送消息，我服务器需要首先收到客户端的消息；
-                                0,//EPOLLET,      //其他补充标记【EPOLLET(高速模式，边缘触发ET)】
-                                                      //后续因为实际项目需要，我们采用LT模式【水平触发模式/低速模式】
-                                EPOLL_CTL_MOD,    //事件类型【增加，还有删除/修改】
-                                pConn              //连接池中的连接
+    /*msgSend(p_sendbuf);*/
+    if(ngx_epoll_oper_event(
+                                pConn->fd,          //socekt句柄
+                                EPOLL_CTL_MOD,      //事件类型，这里是增加
+                                EPOLLOUT,           //标志，这里代表要增加的标志,EPOLLOUT：可写
+                                0,                  //对于事件类型为增加的，EPOLL_CTL_MOD需要这个参数, 0：增加   1：去掉 2：完全覆盖
+                                pConn               //连接池中的连接
                                 ) == -1)
-                                {
-                                    //ngx_log_stderr(0,"111111111111!");
-                                }
-    */
+    {
+        ngx_log_stderr(0,"1111111111111111111111111111111111111111111111111111111111111!");
+    }
 
    /*
     sleep(100);  //休息这么长时间

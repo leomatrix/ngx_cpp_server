@@ -1,6 +1,7 @@
 
 //整个程序入口函数放这里
 /*
+公众号：程序员速成     q群：716480601
 王健伟老师 《Linux C++通讯架构实战》
 商业级质量的代码，完整的项目，帮你提薪至少10K
 */
@@ -49,7 +50,7 @@ sig_atomic_t  ngx_reap;         //标记子进程状态变化[一般是子进程
 //程序主入口函数----------------------------------
 int main(int argc, char *const *argv)
 {
-    //printf("%u,%u,%u,%u",EPOLLIN,EPOLLOUT,EPOLLRDHUP,EPOLLET);  1,4,8192,2147483648
+    //printf("%u,%u,%u",EPOLLERR ,EPOLLHUP,EPOLLRDHUP);
     //exit(0);
 
     int exitcode = 0;           //退出代码，先给0表示正常退出

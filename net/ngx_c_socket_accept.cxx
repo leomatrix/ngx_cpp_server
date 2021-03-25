@@ -185,6 +185,11 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
         }
         */
 
+        if(m_ifkickTimeCount == 1)
+        {
+            AddToTimerQueue(newc);
+        }
+
         break;  //一般就是循环一次就跳出去
     } while (1);
 

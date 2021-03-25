@@ -118,11 +118,8 @@ ssize_t CSocekt::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
         //客户端关闭【应该是正常完成了4次挥手】，我这边就直接回收连接，关闭socket即可
         //ngx_log_stderr(0,"连接被客户端正常关闭[4路挥手关闭]！");
         //ngx_close_connection(c);
-        if(close(c->fd) == -1)
-        {
-            ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocekt::recvproc()中close(%d)失败!",c->fd);
-        }
-        inRecyConnectQueue(c);
+        //inRecyConnectQueue(c);
+        zdClosesocketProc(c);
         return -1;
     }
     //客户端没断，走这里
@@ -166,11 +163,8 @@ ssize_t CSocekt::recvproc(lpngx_connection_t c,char *buff,ssize_t buflen)  //ssi
 
         //这种真正的错误就要，直接关闭套接字，释放连接池中连接了
         //ngx_close_connection(c);
-        if(close(c->fd) == -1)
-        {
-            ngx_log_error_core(NGX_LOG_ALERT,errno,"CSocekt::recvproc()中close_2(%d)失败!",c->fd);
-        }
-        inRecyConnectQueue(c);
+        //inRecyConnectQueue(c);
+        zdClosesocketProc(c);
         return -1;
     }
 
@@ -351,7 +345,7 @@ void CSocekt::ngx_write_request_handler(lpngx_connection_t pConn)
             ngx_log_stderr(errno,"CSocekt::ngx_write_request_handler()中ngx_epoll_oper_event()失败。");
         }
 
-        ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中数据发送完毕，很好。"); //做个提示吧，商用时可以干掉
+        //ngx_log_stderr(0,"CSocekt::ngx_write_request_handler()中数据发送完毕，很好。"); //做个提示吧，商用时可以干掉
 
     }
 

@@ -9,6 +9,7 @@
 #include <pthread.h>    //多线程
 #include <semaphore.h>  //信号量
 #include <atomic>       //c++11里的原子操作
+#include <map>          //multimap
 
 #include "ngx_comm.h"
 
@@ -78,6 +79,9 @@ struct ngx_connection_s
 	//和回收有关
 	time_t                    inRecyTime;                     //入到资源回收站里去的时间
 
+	//和心跳包有关
+	time_t                    lastPingTime;                   //上次ping的时间【上次发送心跳包的事件】
+
 	//--------------------------------------------------
 	lpngx_connection_t        next;                           //这是个指针，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
 };
@@ -103,6 +107,8 @@ public:
 
 public:
 	virtual void threadRecvProcFunc(char *pMsgBuf);                       //处理客户端请求，虚函数，因为将来可以考虑自己来写子类继承本类
+	virtual void procPingTimeOutChecking(LPSTRUC_MSG_HEADER tmpmsg,time_t cur_time);  //心跳包检测时间到，该去检测心跳包是否超时的事宜，本函数只是把内存释放，子类应该重新事先该函数以实现具体的判断动作
+
 public:
 	int  ngx_epoll_init();                                                //epoll功能初始化
 	//int  ngx_epoll_add_event(int fd,int readevent,int writeevent,uint32_t otherflag,uint32_t eventtype,lpngx_connection_t pConn);
@@ -115,6 +121,7 @@ public:
 protected:
 	//数据发送相关
 	void msgSend(char *psendbuf);                                         //把数据扔到待发送对列中
+	void zdClosesocketProc(lpngx_connection_t p_Conn);                    //主动关闭一个连接时的要做些善后的处理函数
 
 private:
 	void ReadConf();                                                      //专门用于读各种配置项
@@ -145,14 +152,27 @@ private:
 	void ngx_free_connection(lpngx_connection_t pConn);                   //归还参数pConn所代表的连接到到连接池中
 	void inRecyConnectQueue(lpngx_connection_t pConn);                    //将要回收的连接放到一个队列中来
 
+	//和时间相关的函数
+	void    AddToTimerQueue(lpngx_connection_t pConn);                    //设置踢出时钟(向map表中增加内容)
+	time_t  GetEarliestTime();                                            //从multimap中取得最早的时间返回去
+	LPSTRUC_MSG_HEADER RemoveFirstTimer();                                //从m_timeQueuemap移除最早的时间，并把最早这个时间所在的项的值所对应的指针 返回，调用者负责互斥，所以本函数不用互斥，
+	LPSTRUC_MSG_HEADER GetOverTimeTimer(time_t cur_time);                  //根据给的当前时间，从m_timeQueuemap找到比这个时间更老（更早）的节点【1个】返回去，这些节点都是时间超过了，要处理的节点
+	void DeleteFromTimerQueue(lpngx_connection_t pConn);                  //把指定用户tcp连接从timer表中抠出去
+	void clearAllFromTimerQueue();                                        //清理时间队列中所有内容
+
+
 	//线程相关函数
 	static void* ServerSendQueueThread(void *threadData);                 //专门用来发送数据的线程
 	static void* ServerRecyConnectionThread(void *threadData);            //专门用来回收连接的线程
+	static void* ServerTimerQueueMonitorThread(void *threadData);         //时间队列监视线程，处理到期不发心跳包的用户踢出的线程
+
 
 protected:
 	//一些和网络通讯有关的成员变量
 	size_t                         m_iLenPkgHeader;                       //sizeof(COMM_PKG_HEADER);
 	size_t                         m_iLenMsgHeader;                       //sizeof(STRUC_MSG_HEADER);
+
+	int                            m_iWaitTime;                           //多少秒检测一次是否 心跳超时，只有当Sock_WaitTimeEnable = 1时，本项才有用
 
 private:
 	struct ThreadItem
@@ -200,6 +220,12 @@ private:
 	pthread_mutex_t                m_sendMessageQueueMutex;               //发消息队列互斥量
 	sem_t                          m_semEventSendQueue;                   //处理发消息线程相关的信号量
 
+	//时间相关
+	int                            m_ifkickTimeCount;                     //是否开启踢人时钟，1：开启   0：不开启
+	pthread_mutex_t                m_timequeueMutex;                      //和时间队列有关的互斥量
+	std::multimap<time_t, LPSTRUC_MSG_HEADER>   m_timerQueuemap;          //时间队列
+	size_t                         m_cur_size_;                           //时间队列的尺寸
+	time_t                         m_timer_value_;                        //当前计时队列头部时间值
 };
 
 #endif

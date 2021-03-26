@@ -176,7 +176,14 @@ ssize_t CSocekt::recvproc(lpngx_connection_t pConn,char *buff,ssize_t buflen)  /
         else
         {
             //能走到这里的，都表示错误，我打印一下日志，希望知道一下是啥错误，我准备打印到屏幕上
-            ngx_log_stderr(errno,"CSocekt::recvproc()中发生错误，我打印出来看看是啥错误！");  //正式运营时可以考虑这些日志打印去掉
+            if(errno == EBADF)  // #define EBADF   9 /* Bad file descriptor */
+            {
+                //因为多线程，偶尔会干掉socket，所以不排除产生这个错误的可能性
+            }
+            else
+            {
+                ngx_log_stderr(errno,"CSocekt::recvproc()中发生错误，我打印出来看看是啥错误！");  //正式运营时可以考虑这些日志打印去掉
+            }
         }
 
         //ngx_log_stderr(0,"连接被客户端 非 正常关闭！");

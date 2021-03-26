@@ -48,14 +48,15 @@ void ngx_connection_s::GetOneToUse()
     precvbuf = dataHeadInfo;                          //收包我要先收到这里来，因为我要先收包头，所以收数据的buff直接就是dataHeadInfo
     irecvlen = sizeof(COMM_PKG_HEADER);               //这里指定收数据的长度，这里先要求收包头这么长字节的数据
 
-    precvMemPointer = NULL;                           //既然没new内存，那自然指向的内存地址先给NULL
-    iThrowsendCount = 0;                              //原子的
-    psendMemPointer = NULL;                           //发送数据头指针记录
-    events          = 0;                              //epoll事件先给0
-    lastPingTime    = time(NULL);                     //上次ping的时间
+    precvMemPointer   = NULL;                         //既然没new内存，那自然指向的内存地址先给NULL
+    iThrowsendCount   = 0;                            //原子的
+    psendMemPointer   = NULL;                         //发送数据头指针记录
+    events            = 0;                            //epoll事件先给0
+    lastPingTime      = time(NULL);                   //上次ping的时间
 
     FloodkickLastTime = 0;                            //Flood攻击上次收到包的时间
 	FloodAttackCount  = 0;	                          //Flood攻击在该时间内收到包的次数统计
+    iSendCount        = 0;                            //发送队列中有的数据条目数，若client只发不收，则可能造成此数过大，依据此数做出踢出处理
 }
 
 //回收回来一个连接的时候做一些事

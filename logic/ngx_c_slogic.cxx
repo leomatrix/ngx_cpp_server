@@ -101,13 +101,19 @@ void CLogicSocket::threadRecvProcFunc(char *pMsgBuf)
 		pPkgHeader->crc32 = ntohl(pPkgHeader->crc32);		          //针对4字节的数据，网络序转主机序
 		pPkgBody = (void *)(pMsgBuf+m_iLenMsgHeader+m_iLenPkgHeader); //跳过消息头 以及 包头 ，指向包体
 
+        //ngx_log_stderr(0,"CLogicSocket::threadRecvProcFunc()中收到包的crc值为%d!",pPkgHeader->crc32);
+
 		//计算crc值判断包的完整性
 		int calccrc = CCRC32::GetInstance()->Get_CRC((unsigned char *)pPkgBody,pkglen-m_iLenPkgHeader); //计算纯包体的crc值
 		if(calccrc != pPkgHeader->crc32) //服务器端根据包体计算crc值，和客户端传递过来的包头中的crc32信息比较
 		{
-            ngx_log_stderr(0,"CLogicSocket::threadRecvProcFunc()中CRC错误，丢弃数据!");    //正式代码中可以干掉这个信息
+            ngx_log_stderr(0,"CLogicSocket::threadRecvProcFunc()中CRC错误[服务器:%d/客户端:%d]，丢弃数据!",calccrc,pPkgHeader->crc32);    //正式代码中可以干掉这个信息
 			return; //crc错，直接丢弃
 		}
+        else
+        {
+            //ngx_log_stderr(0,"CLogicSocket::threadRecvProcFunc()中CRC正确[服务器:%d/客户端:%d]，不错!",calccrc,pPkgHeader->crc32);
+        }
 	}
 
     //包crc校验OK才能走到这里
@@ -195,7 +201,7 @@ void CLogicSocket::SendNoBodyPkgToClient(LPSTRUC_MSG_HEADER pMsgHeader,unsigned 
 //处理各种业务逻辑
 bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER pMsgHeader,char *pPkgBody,unsigned short iBodyLength)
 {
-    ngx_log_stderr(0,"执行了CLogicSocket::_HandleRegister()!");
+    //ngx_log_stderr(0,"执行了CLogicSocket::_HandleRegister()!");
 
     //(1)首先判断包体的合法性
     if(pPkgBody == NULL) //具体看客户端服务器约定，如果约定这个命令[msgCode]必须带包体，那么如果不带包体，就认为是恶意包，直接不处理
@@ -278,15 +284,44 @@ bool CLogicSocket::_HandleRegister(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER p
     }
 
     */
-    //ngx_log_stderr(0,"执行了CLogicSocket::_HandleRegister()!");
+    //ngx_log_stderr(0,"执行了CLogicSocket::_HandleRegister()并返回结果!");
     return true;
 }
 bool CLogicSocket::_HandleLogIn(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER pMsgHeader,char *pPkgBody,unsigned short iBodyLength)
 {
-    ngx_log_stderr(0,"执行了CLogicSocket::_HandleLogIn()!");
+    if(pPkgBody == NULL)
+    {
+        return false;
+    }
+    int iRecvLen = sizeof(STRUCT_LOGIN);
+    if(iRecvLen != iBodyLength)
+    {
+        return false;
+    }
+    CLock lock(&pConn->logicPorcMutex);
+
+    LPSTRUCT_LOGIN p_RecvInfo = (LPSTRUCT_LOGIN)pPkgBody;
+    p_RecvInfo->username[sizeof(p_RecvInfo->username)-1]=0;
+    p_RecvInfo->password[sizeof(p_RecvInfo->password)-1]=0;
+
+	LPCOMM_PKG_HEADER pPkgHeader;
+	CMemory  *p_memory = CMemory::GetInstance();
+	CCRC32   *p_crc32 = CCRC32::GetInstance();
+
+    int iSendLen = sizeof(STRUCT_LOGIN);
+    char *p_sendbuf = (char *)p_memory->AllocMemory(m_iLenMsgHeader+m_iLenPkgHeader+iSendLen,false);
+    memcpy(p_sendbuf,pMsgHeader,m_iLenMsgHeader);
+    pPkgHeader = (LPCOMM_PKG_HEADER)(p_sendbuf+m_iLenMsgHeader);
+    pPkgHeader->msgCode = _CMD_LOGIN;
+    pPkgHeader->msgCode = htons(pPkgHeader->msgCode);
+    pPkgHeader->pkgLen  = htons(m_iLenPkgHeader + iSendLen);
+    LPSTRUCT_LOGIN p_sendInfo = (LPSTRUCT_LOGIN)(p_sendbuf+m_iLenMsgHeader+m_iLenPkgHeader);
+    pPkgHeader->crc32   = p_crc32->Get_CRC((unsigned char *)p_sendInfo,iSendLen);
+    pPkgHeader->crc32   = htonl(pPkgHeader->crc32);
+    //ngx_log_stderr(0,"成功收到了登录并返回结果！");
+    msgSend(p_sendbuf);
     return true;
 }
-
 
 //接收并处理客户端发送过来的ping包
 bool CLogicSocket::_HandlePing(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER pMsgHeader,char *pPkgBody,unsigned short iBodyLength)
@@ -301,6 +336,6 @@ bool CLogicSocket::_HandlePing(lpngx_connection_t pConn,LPSTRUC_MSG_HEADER pMsgH
     //服务器也发送 一个只有包头的数据包给客户端，作为返回的数据
     SendNoBodyPkgToClient(pMsgHeader,_CMD_PING);
 
-    ngx_log_stderr(0,"成功收到了心跳包并返回结果！");
+    //ngx_log_stderr(0,"成功收到了心跳包并返回结果！");
     return true;
 }

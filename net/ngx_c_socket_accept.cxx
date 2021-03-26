@@ -85,7 +85,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
             {
                 level = NGX_LOG_CRIT;
             }
-            ngx_log_error_core(level,errno,"CSocekt::ngx_event_accept()中accept4()失败!");
+            //ngx_log_error_core(level,errno,"CSocekt::ngx_event_accept()中accept4()失败!");
 
             if(use_accept4 && err == ENOSYS) //accept4()函数没实现，坑爹？
             {
@@ -113,6 +113,18 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
             ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);
             close(s);
             return ;
+        }
+        //如果某些恶意用户连上来发了1条数据就断，不断连接，会导致频繁调用ngx_get_connection()使用我们短时间内产生大量连接，危及本服务器安全
+        if(m_connectionList.size() > (m_worker_connections * 5))
+        {
+            //比如你允许同时最大2048个连接，但连接池却有了 2048*5这么大的容量，这肯定是表示短时间内 产生大量连接/断开，因为我们的延迟回收机制，这里连接还在垃圾池里没有被回收
+            if(m_freeconnectionList.size() < m_worker_connections)
+            {
+                //整个连接池这么大了，而空闲连接却这么少了，所以我认为是  短时间内 产生大量连接，发一个包后就断开，我们不可能让这种情况持续发生，所以必须断开新入用户的连接
+                //一直到m_freeconnectionList变得足够大【连接池中连接被回收的足够多】
+                close(s);
+                return ;
+            }
         }
 
         //ngx_log_stderr(errno,"accept4成功s=%d",s); //s这里就是 一个句柄了
@@ -155,7 +167,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
         newc->whandler = &CSocekt::ngx_write_request_handler; //设置数据发送时的写处理函数。
 
         //客户端应该主动发送第一次的数据，这里将读事件加入epoll监控，这样当客户端发送数据来时，会触发ngx_wait_request_handler()被ngx_epoll_process_events()调用
-         if(ngx_epoll_oper_event(
+        if(ngx_epoll_oper_event(
                                 s,                  //socekt句柄
                                 EPOLL_CTL_ADD,      //事件类型，这里是增加
                                 EPOLLIN|EPOLLRDHUP, //标志，这里代表要增加的标志,EPOLLIN：可读，EPOLLRDHUP：TCP连接的远端关闭或者半关闭 ，如果边缘触发模式可以增加 EPOLLET

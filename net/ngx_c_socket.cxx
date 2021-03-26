@@ -271,6 +271,21 @@ bool CSocekt::ngx_open_listening_sockets()
             close(isock); //无需理会是否正常执行了
             return false;
         }
+
+        //为处理惊群问题使用reuseport
+
+        int reuseport = 1;
+        if (setsockopt(isock, SOL_SOCKET, SO_REUSEPORT,(const void *) &reuseport, sizeof(int))== -1) //端口复用需要内核支持
+        {
+            //失败就失败吧，失败顶多是惊群，但程序依旧可以正常运行，所以仅仅提示一下即可
+            ngx_log_stderr(errno,"CSocekt::Initialize()中setsockopt(SO_REUSEPORT)失败",i);
+        }
+        //else
+        //{
+        //    ngx_log_stderr(errno,"CSocekt::Initialize()中setsockopt(SO_REUSEPORT)成功");
+        //}
+
+
         //设置该socket为非阻塞
         if(setnonblocking(isock) == false)
         {
@@ -454,6 +469,7 @@ bool CSocekt::TestFlood(lpngx_connection_t pConn)
 //打印统计信息
 void CSocekt::printTDInfo()
 {
+    //return;
     time_t currtime = time(NULL);
     if( (currtime - m_lastprintTime) > 10)
     {
@@ -743,7 +759,8 @@ int CSocekt::ngx_epoll_process_events(int timer)
     }
 
     //会惊群，一个telnet上来，4个worker进程都会被惊动，都执行下边这个
-    //ngx_log_stderr(errno,"惊群测试1:%d",events);
+    //ngx_log_stderr(0,"惊群测试:events=%d,进程id=%d",events,ngx_pid);
+    //ngx_log_stderr(0,"----------------------------------------");
 
     //走到这里，就是属于有事件收到了
     lpngx_connection_t p_Conn;

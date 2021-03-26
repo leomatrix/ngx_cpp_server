@@ -60,6 +60,16 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
                //所有的子进程都accept这个监听句柄。这样，当新连接过来时，大家会发现，仅有一个子进程返回新建的连接，其他子进程继续休眠在accept调用上，没有被唤醒。
         //ngx_log_stderr(0,"测试惊群问题，看惊动几个worker进程%d\n",s); 【我的结论是：accept4可以认为基本解决惊群问题，但似乎并没有完全解决，有时候还会惊动其他的worker进程】
 
+        /*
+        if(s == -1)
+        {
+            ngx_log_stderr(0,"惊群测试:ngx_event_accept()中accept失败,进程id=%d",ngx_pid);
+        }
+        else
+        {
+            ngx_log_stderr(0,"惊群测试:ngx_event_accept()中accept成功,进程id=%d",ngx_pid);
+        } */
+
         if(s == -1)
         {
             err = errno;
@@ -110,7 +120,7 @@ void CSocekt::ngx_event_accept(lpngx_connection_t oldc)
         //走到这里的，表示accept4()/accept()成功了
         if(m_onlineUserCount >= m_worker_connections)  //用户连接数过多，要关闭该用户socket，因为现在也没分配连接，所以直接关闭即可
         {
-            ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);
+            //ngx_log_stderr(0,"超出系统允许的最大连入用户数(最大允许连入数%d)，关闭连入请求(%d)。",m_worker_connections,s);
             close(s);
             return ;
         }

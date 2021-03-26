@@ -82,6 +82,11 @@ struct ngx_connection_s
 	//和心跳包有关
 	time_t                    lastPingTime;                   //上次ping的时间【上次发送心跳包的事件】
 
+	//和网络安全有关
+	uint64_t                  FloodkickLastTime;              //Flood攻击上次收到包的时间
+	int                       FloodAttackCount;               //Flood攻击在该时间内收到包的次数统计
+
+
 	//--------------------------------------------------
 	lpngx_connection_t        next;                           //这是个指针，指向下一个本类型对象，用于把空闲的连接池对象串起来构成一个单向链表，方便取用
 };
@@ -136,8 +141,10 @@ private:
 	void ngx_close_connection(lpngx_connection_t pConn);                  //通用连接关闭函数，资源用这个函数释放【因为这里涉及到好几个要释放的资源，所以写成函数】
 
 	ssize_t recvproc(lpngx_connection_t pConn,char *buff,ssize_t buflen); //接收从客户端来的数据专用函数
-	void ngx_wait_request_handler_proc_p1(lpngx_connection_t pConn);      //包头收完整后的处理，我们称为包处理阶段1：写成函数，方便复用
-	void ngx_wait_request_handler_proc_plast(lpngx_connection_t pConn);   //收到一个完整包后的处理，放到一个函数中，方便调用
+	void ngx_wait_request_handler_proc_p1(lpngx_connection_t pConn,bool &isflood);
+	                                                                      //包头收完整后的处理，我们称为包处理阶段1：写成函数，方便复用
+	void ngx_wait_request_handler_proc_plast(lpngx_connection_t pConn,bool &isflood);
+	                                                                      //收到一个完整包后的处理，放到一个函数中，方便调用
 	void clearMsgSendQueue();                                             //处理发送消息队列
 
 	ssize_t sendproc(lpngx_connection_t c,char *buff,ssize_t size);       //将数据发送到客户端
@@ -160,6 +167,9 @@ private:
 	void DeleteFromTimerQueue(lpngx_connection_t pConn);                  //把指定用户tcp连接从timer表中抠出去
 	void clearAllFromTimerQueue();                                        //清理时间队列中所有内容
 
+	//和网络安全有关
+	bool TestFlood(lpngx_connection_t pConn);                             //测试是否flood攻击成立，成立则返回true，否则返回false
+
 
 	//线程相关函数
 	static void* ServerSendQueueThread(void *threadData);                 //专门用来发送数据的线程
@@ -172,6 +182,8 @@ protected:
 	size_t                         m_iLenPkgHeader;                       //sizeof(COMM_PKG_HEADER);
 	size_t                         m_iLenMsgHeader;                       //sizeof(STRUC_MSG_HEADER);
 
+	//时间相关
+	int                            m_ifTimeOutKick;                       //当时间到达Sock_MaxWaitTime指定的时间时，直接把客户端踢出去，只有当Sock_WaitTimeEnable = 1时，本项才有用
 	int                            m_iWaitTime;                           //多少秒检测一次是否 心跳超时，只有当Sock_WaitTimeEnable = 1时，本项才有用
 
 private:
@@ -226,6 +238,13 @@ private:
 	std::multimap<time_t, LPSTRUC_MSG_HEADER>   m_timerQueuemap;          //时间队列
 	size_t                         m_cur_size_;                           //时间队列的尺寸
 	time_t                         m_timer_value_;                        //当前计时队列头部时间值
+
+	//在线用户相关
+	std::atomic<int>               m_onlineUserCount;                     //当前在线用户数统计
+	//网络安全相关
+	int                            m_floodAkEnable;                       //Flood攻击检测是否开启,1：开启   0：不开启
+	unsigned int                   m_floodTimeInterval;                   //表示每次收到数据包的时间间隔是100(毫秒)
+	int                            m_floodKickCount;                      //累积多少次踢出此人
 };
 
 #endif
